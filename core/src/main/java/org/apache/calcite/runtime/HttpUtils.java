@@ -16,42 +16,42 @@
  */
 package org.apache.calcite.runtime;
 
+import org.apache.http.HttpStatus;
+import org.apache.http.auth.AuthSchemeProvider;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.Credentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.config.AuthSchemes;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.config.Lookup;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.auth.SPNegoSchemeFactory;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
-import java.io.Writer;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.security.Principal;
 import java.util.Map;
-import javax.net.ssl.HttpsURLConnection;
+import java.util.function.Function;
 
 /**
  * Utilities for connecting to REST services such as Splunk via HTTP.
  */
 public class HttpUtils {
   private HttpUtils() {}
-
-  public static HttpURLConnection getURLConnection(String url)
-      throws IOException {
-    URLConnection conn = new URL(url).openConnection();
-    final HttpURLConnection httpConn = (HttpURLConnection) conn;
-
-    // take care of https stuff - most of the time it's only needed to
-    // secure client/server comm
-    // not to establish the identity of the server
-    if (httpConn instanceof HttpsURLConnection) {
-      HttpsURLConnection httpsConn = (HttpsURLConnection) httpConn;
-      httpsConn.setSSLSocketFactory(
-          TrustAllSslSocketFactory.createSSLSocketFactory());
-      httpsConn.setHostnameVerifier((arg0, arg1) -> true);
-    }
-
-    return httpConn;
-  }
 
   public static void appendURLEncodedArgs(
       StringBuilder out, Map<String, String> args) {
@@ -94,48 +94,107 @@ public class HttpUtils {
     }
   }
 
-  public static InputStream post(
-      String url,
-      CharSequence data,
-      Map<String, String> headers) throws IOException {
-    return post(url, data, headers, 10000, 60000);
+  public static <R> R post(
+          String url,
+          CharSequence data,
+          Map<String, String> headers,
+          Function<InputStream, R> responseCallback) throws IOException {
+    return post(url, data, headers, responseCallback, 10000, 60000);
   }
 
-  public static InputStream post(
+  public static <R> R post(
       String url,
       CharSequence data,
       Map<String, String> headers,
+      Function<InputStream, R> responseCallback,
       int cTimeout,
       int rTimeout) throws IOException {
-    return executeMethod(data == null ? "GET" : "POST", url, data, headers,
+    return executeMethod(url, data, headers, responseCallback,
         cTimeout, rTimeout);
   }
 
-  public static InputStream executeMethod(
-      String method, String url,
-      CharSequence data, Map<String, String> headers,
+  public static <R> R executeMethod(
+      String url,
+      CharSequence data, Map<String, String> headers, Function<InputStream, R> responseCallback,
       int cTimeout, int rTimeout) throws IOException {
     // NOTE: do not log "data" or "url"; may contain user name or password.
-    final HttpURLConnection conn = getURLConnection(url);
-    conn.setRequestMethod(method);
-    conn.setReadTimeout(rTimeout);
-    conn.setConnectTimeout(cTimeout);
 
-    if (headers != null) {
-      for (Map.Entry<String, String> me : headers.entrySet()) {
-        conn.setRequestProperty(me.getKey(), me.getValue());
+    //Kerberos
+    boolean isKerberos = (System.getProperty("java.security.auth.login.config") != null && System.getProperty("java.security.krb5.conf") != null);
+
+    RequestConfig requestConfig = RequestConfig.custom()
+            .setConnectTimeout(cTimeout)
+            .setSocketTimeout(rTimeout).build();
+
+    //if SSL is being used just use it for communication. No need to check the certificate
+    try(CloseableHttpClient httpClient = HttpClients.custom()
+            .setDefaultRequestConfig(requestConfig)
+            .setSSLSocketFactory(new SSLConnectionSocketFactory(TrustAllSslSocketFactory.createSSLSocketFactory(), (s, sslSession) -> true))
+            .build()){
+
+      HttpRequestBase request;
+
+      if(data == null){
+        //GET
+        request = new HttpGet(url);
+
+      } else {
+        //POST
+        HttpPost post = new HttpPost(url);
+        post.setEntity(new StringEntity(data.toString(), StandardCharsets.UTF_8));
+
+        request = post;
       }
+
+      if(headers != null){
+        headers.forEach(request::setHeader);
+      }
+
+
+      CloseableHttpResponse httpResponse;
+
+      if(isKerberos){
+        //Authenticate with Kerberos Keytab
+        Lookup<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
+                .register(AuthSchemes.SPNEGO, new SPNegoSchemeFactory(true)).build();
+
+        HttpClientContext clientContext = HttpClientContext.create();
+        CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+
+        credentialsProvider.setCredentials(AuthScope.ANY, new Credentials() {
+          @Override
+          public Principal getUserPrincipal() {
+            return null;
+          }
+
+          @Override
+          public String getPassword() {
+            return null;
+          }
+        });
+
+        clientContext.setCredentialsProvider(credentialsProvider);
+        clientContext.setAuthSchemeRegistry(authSchemeRegistry);
+
+        httpResponse = httpClient.execute(request, clientContext);
+      } else {
+        httpResponse = httpClient.execute(request);
+      }
+
+      int statusCode = httpResponse.getStatusLine().getStatusCode();
+      if(statusCode == HttpStatus.SC_OK){
+        //If response is 200 then pass the InputStream to the callback
+        //InputStream is AutoClosed with try resource management
+          try(InputStream inputStream = httpResponse.getEntity().getContent()) {
+              return responseCallback.apply(inputStream);
+          }
+      } else {
+        String errorResponse = EntityUtils.toString(httpResponse.getEntity());
+        throw new IOException("HTTP status code: " + statusCode + " Error Message: " + errorResponse);
+      }
+
     }
-    if (data == null) {
-      return conn.getInputStream();
-    }
-    conn.setDoOutput(true);
-    try (Writer w = new OutputStreamWriter(conn.getOutputStream(),
-        StandardCharsets.UTF_8)) {
-      w.write(data.toString());
-      w.flush(); // Get the response
-      return conn.getInputStream();
-    }
+
   }
 }
 

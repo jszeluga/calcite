@@ -16,6 +16,14 @@
  */
 package org.apache.calcite.adapter.druid;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.CollectionType;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.apache.calcite.avatica.AvaticaUtils;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.util.DateTimeUtils;
@@ -25,21 +33,10 @@ import org.apache.calcite.interpreter.Sink;
 import org.apache.calcite.linq4j.AbstractEnumerable;
 import org.apache.calcite.linq4j.Enumerable;
 import org.apache.calcite.linq4j.Enumerator;
+import org.apache.calcite.prepare.CalcitePrepareImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Holder;
 import org.apache.calcite.util.Util;
-
-import static org.apache.calcite.runtime.HttpUtils.post;
-
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.type.CollectionType;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-
 import org.joda.time.Interval;
 
 import java.io.ByteArrayInputStream;
@@ -48,20 +45,13 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Objects;
-import java.util.Set;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static org.apache.calcite.runtime.HttpUtils.post;
 
 /**
  * Implementation of {@link DruidConnection}.
@@ -106,9 +96,14 @@ class DruidConnectionImpl implements DruidConnection {
     if (CalciteSystemProperty.DEBUG.value()) {
       System.out.println(data);
     }
-    try (InputStream in0 = post(url, data, requestHeaders, 10000, 1800000);
-         InputStream in = traceResponse(in0)) {
-      parse(queryType, in, sink, fieldNames, fieldTypes, page);
+
+    try{
+      post(url, data, requestHeaders, (in0->{
+        InputStream in = traceResponse(in0);
+        parse(queryType, in, sink, fieldNames, fieldTypes, page);
+        return null;
+      }), 10000, 1800000);
+
     } catch (IOException e) {
       throw new RuntimeException("Error while processing druid request ["
           + data + "]", e);
@@ -568,15 +563,22 @@ class DruidConnectionImpl implements DruidConnection {
     if (CalciteSystemProperty.DEBUG.value()) {
       System.out.println("Druid: " + data);
     }
-    try (InputStream in0 = post(url, data, requestHeaders, 10000, 1800000);
-         InputStream in = traceResponse(in0)) {
+    try {
       final ObjectMapper mapper = new ObjectMapper()
           .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
       final CollectionType listType =
           mapper.getTypeFactory().constructCollectionType(List.class,
               JsonSegmentMetadata.class);
-      final List<JsonSegmentMetadata> list = mapper.readValue(in, listType);
-      in.close();
+
+      final List<JsonSegmentMetadata> list = post(url, data, requestHeaders, (in0)->{
+        InputStream in = traceResponse(in0);
+        try {
+          return mapper.readValue(in, listType);
+        } catch (IOException e){
+          throw new RuntimeException(e);
+        }
+      },10000, 1800000);
+
       fieldBuilder.putIfAbsent(timestampColumnName, SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
       for (JsonSegmentMetadata o : list) {
         for (Map.Entry<String, JsonColumn> entry : o.columns.entrySet()) {
@@ -627,13 +629,21 @@ class DruidConnectionImpl implements DruidConnection {
     if (CalciteSystemProperty.DEBUG.value()) {
       System.out.println("Druid: table names" + data + "; " + url);
     }
-    try (InputStream in0 = post(url, data, requestHeaders, 10000, 1800000);
-         InputStream in = traceResponse(in0)) {
+    try {
       final ObjectMapper mapper = new ObjectMapper();
       final CollectionType listType =
           mapper.getTypeFactory().constructCollectionType(List.class,
               String.class);
-      final List<String> list = mapper.readValue(in, listType);
+
+      final List<String> list = post(url, data, requestHeaders, (in0)->{
+        InputStream in = traceResponse(in0);
+        try {
+          return mapper.readValue(in, listType);
+        } catch (IOException e){
+          throw new RuntimeException(e);
+        }
+      }, 10000,1800000);
+
       return ImmutableSet.copyOf(list);
     } catch (IOException e) {
       throw new RuntimeException(e);

@@ -16,33 +16,20 @@
  */
 package org.apache.calcite.adapter.splunk.search;
 
+import au.com.bytecode.opencsv.CSVReader;
 import org.apache.calcite.adapter.splunk.util.StringUtils;
 import org.apache.calcite.linq4j.Enumerator;
 import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.util.Unsafe;
 import org.apache.calcite.util.Util;
-
-import au.com.bytecode.opencsv.CSVReader;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -101,7 +88,8 @@ public class SplunkConnectionImpl implements SplunkConnection {
       appendURLEncodedArgs(
           data, "username", username, "password", password);
 
-      rd = Util.reader(post(loginUrl, data, requestHeaders));
+
+      rd = post(loginUrl, data, requestHeaders, Util::reader);
 
       String line;
       StringBuilder reply = new StringBuilder();
@@ -162,16 +150,14 @@ public class SplunkConnectionImpl implements SplunkConnection {
     appendURLEncodedArgs(data, args);
     try {
       // wait at most 30 minutes for first result
-      InputStream in =
-          post(searchUrl, data, requestHeaders, 10000, 1800000);
-      if (srl == null) {
-        return new SplunkResultEnumerator(in, wantedFields);
-      } else {
-        parseResults(
-            in,
-            srl);
-        return null;
-      }
+      return post(searchUrl, data, requestHeaders, (in)->{
+            if(srl == null){
+              return new SplunkResultEnumerator(in, wantedFields);
+            } else {
+              parseResults(in, srl);
+              return null;
+            }
+          }, 10000, 1800000);
     } catch (Exception e) {
       StringWriter sw = new StringWriter();
       e.printStackTrace(new PrintWriter(sw));

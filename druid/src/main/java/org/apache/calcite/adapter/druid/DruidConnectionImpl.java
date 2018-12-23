@@ -16,14 +16,6 @@
  */
 package org.apache.calcite.adapter.druid;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.type.CollectionType;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.apache.calcite.avatica.AvaticaUtils;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.util.DateTimeUtils;
@@ -36,6 +28,16 @@ import org.apache.calcite.prepare.CalcitePrepareImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Holder;
 import org.apache.calcite.util.Util;
+
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.CollectionType;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+
 import org.joda.time.Interval;
 
 import java.io.ByteArrayInputStream;
@@ -44,7 +46,16 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TimeZone;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -96,12 +107,12 @@ class DruidConnectionImpl implements DruidConnection {
       System.out.println(data);
     }
 
-    try{
-      post(url, data, requestHeaders, (in0->{
+    try {
+      post(url, data, requestHeaders, in0 -> {
         InputStream in = traceResponse(in0);
         parse(queryType, in, sink, fieldNames, fieldTypes, page);
         return null;
-      }), 10000, 1800000);
+      }, 10000, 1800000);
 
     } catch (IOException e) {
       throw new RuntimeException("Error while processing druid request ["
@@ -144,11 +155,11 @@ class DruidConnectionImpl implements DruidConnection {
       case TIMESERIES:
         if (parser.nextToken() == JsonToken.START_ARRAY) {
           while (parser.nextToken() == JsonToken.START_OBJECT) {
-           // loop until token equal to "}"
+            // loop until token equal to "}"
             final Long timeValue = extractTimestampField(parser);
             if (parser.nextToken() == JsonToken.FIELD_NAME
-                    && parser.getCurrentName().equals("result")
-                    && parser.nextToken() == JsonToken.START_OBJECT) {
+                && parser.getCurrentName().equals("result")
+                && parser.nextToken() == JsonToken.START_OBJECT) {
               if (posTimestampField != -1) {
                 rowBuilder.set(posTimestampField, timeValue);
               }
@@ -569,14 +580,14 @@ class DruidConnectionImpl implements DruidConnection {
           mapper.getTypeFactory().constructCollectionType(List.class,
               JsonSegmentMetadata.class);
 
-      final List<JsonSegmentMetadata> list = post(url, data, requestHeaders, (in0)->{
+      final List<JsonSegmentMetadata> list = post(url, data, requestHeaders, (in0) -> {
         InputStream in = traceResponse(in0);
         try {
           return mapper.readValue(in, listType);
-        } catch (IOException e){
+        } catch (IOException e) {
           throw new RuntimeException(e);
         }
-      },10000, 1800000);
+      }, 10000, 1800000);
 
       fieldBuilder.put(timestampColumnName, SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
       for (JsonSegmentMetadata o : list) {
@@ -634,14 +645,14 @@ class DruidConnectionImpl implements DruidConnection {
           mapper.getTypeFactory().constructCollectionType(List.class,
               String.class);
 
-      final List<String> list = post(url, data, requestHeaders, (in0)->{
+      final List<String> list = post(url, data, requestHeaders, (in0) -> {
         InputStream in = traceResponse(in0);
         try {
           return mapper.readValue(in, listType);
-        } catch (IOException e){
+        } catch (IOException e) {
           throw new RuntimeException(e);
         }
-      }, 10000,1800000);
+      }, 10000, 1800000);
 
       return ImmutableSet.copyOf(list);
     } catch (IOException e) {
@@ -723,7 +734,7 @@ class DruidConnectionImpl implements DruidConnection {
   }
 
   /** Result of a "segmentMetadata" call, populated by Jackson. */
-  @SuppressWarnings({ "WeakerAccess", "unused" })
+  @SuppressWarnings({"WeakerAccess", "unused"})
   private static class JsonSegmentMetadata {
     public String id;
     public List<String> intervals;
@@ -735,7 +746,7 @@ class DruidConnectionImpl implements DruidConnection {
 
   /** Element of the "columns" collection in the result of a
    * "segmentMetadata" call, populated by Jackson. */
-  @SuppressWarnings({ "WeakerAccess", "unused" })
+  @SuppressWarnings({"WeakerAccess", "unused"})
   private static class JsonColumn {
     public String type;
     public boolean hasMultipleValues;
@@ -746,7 +757,7 @@ class DruidConnectionImpl implements DruidConnection {
 
   /** Element of the "aggregators" collection in the result of a
    * "segmentMetadata" call, populated by Jackson. */
-  @SuppressWarnings({ "WeakerAccess", "unused" })
+  @SuppressWarnings({"WeakerAccess", "unused"})
   private static class JsonAggregator {
     public String type;
     public String name;

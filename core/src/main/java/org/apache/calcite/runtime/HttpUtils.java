@@ -95,10 +95,10 @@ public class HttpUtils {
   }
 
   public static <R> R post(
-          String url,
-          CharSequence data,
-          Map<String, String> headers,
-          Function<InputStream, R> responseCallback) throws IOException {
+      String url,
+      CharSequence data,
+      Map<String, String> headers,
+      Function<InputStream, R> responseCallback) throws IOException {
     return post(url, data, headers, responseCallback, 10000, 60000);
   }
 
@@ -120,21 +120,24 @@ public class HttpUtils {
     // NOTE: do not log "data" or "url"; may contain user name or password.
 
     //Kerberos
-    boolean isKerberos = (System.getProperty("java.security.auth.login.config") != null && System.getProperty("java.security.krb5.conf") != null);
+    boolean isKerberos = System.getProperty("java.security.auth.login.config") != null
+        && System.getProperty("java.security.krb5.conf") != null;
 
     RequestConfig requestConfig = RequestConfig.custom()
-            .setConnectTimeout(cTimeout)
-            .setSocketTimeout(rTimeout).build();
+        .setConnectTimeout(cTimeout)
+        .setSocketTimeout(rTimeout).build();
 
     //if SSL is being used just use it for communication. No need to check the certificate
-    try(CloseableHttpClient httpClient = HttpClients.custom()
-            .setDefaultRequestConfig(requestConfig)
-            .setSSLSocketFactory(new SSLConnectionSocketFactory(TrustAllSslSocketFactory.createSSLSocketFactory(), (s, sslSession) -> true))
-            .build()){
+    try (CloseableHttpClient httpClient = HttpClients.custom()
+        .setDefaultRequestConfig(requestConfig)
+        .setSSLSocketFactory(
+            new SSLConnectionSocketFactory(TrustAllSslSocketFactory.createSSLSocketFactory(),
+                (s, sslSession) -> true))
+        .build()) {
 
       HttpRequestBase request;
 
-      if(data == null){
+      if (data == null) {
         //GET
         request = new HttpGet(url);
 
@@ -146,28 +149,26 @@ public class HttpUtils {
         request = post;
       }
 
-      if(headers != null){
+      if (headers != null) {
         headers.forEach(request::setHeader);
       }
 
 
       CloseableHttpResponse httpResponse;
 
-      if(isKerberos){
+      if (isKerberos) {
         //Authenticate with Kerberos Keytab
         Lookup<AuthSchemeProvider> authSchemeRegistry = RegistryBuilder.<AuthSchemeProvider>create()
-                .register(AuthSchemes.SPNEGO, new SPNegoSchemeFactory(true)).build();
+            .register(AuthSchemes.SPNEGO, new SPNegoSchemeFactory(true)).build();
 
         HttpClientContext clientContext = HttpClientContext.create();
         CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
 
         credentialsProvider.setCredentials(AuthScope.ANY, new Credentials() {
-          @Override
           public Principal getUserPrincipal() {
             return null;
           }
 
-          @Override
           public String getPassword() {
             return null;
           }
@@ -182,15 +183,16 @@ public class HttpUtils {
       }
 
       int statusCode = httpResponse.getStatusLine().getStatusCode();
-      if(statusCode == HttpStatus.SC_OK){
+      if (statusCode == HttpStatus.SC_OK) {
         //If response is 200 then pass the InputStream to the callback
         //InputStream is AutoClosed with try resource management
-          try(InputStream inputStream = httpResponse.getEntity().getContent()) {
-              return responseCallback.apply(inputStream);
-          }
+        try (InputStream inputStream = httpResponse.getEntity().getContent()) {
+          return responseCallback.apply(inputStream);
+        }
       } else {
         String errorResponse = EntityUtils.toString(httpResponse.getEntity());
-        throw new IOException("HTTP status code: " + statusCode + " Error Message: " + errorResponse);
+        throw new IOException("HTTP status code: " + statusCode
+            + " Error Message: " + errorResponse);
       }
 
     }

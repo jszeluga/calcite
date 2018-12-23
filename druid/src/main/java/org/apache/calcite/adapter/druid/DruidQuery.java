@@ -1354,6 +1354,8 @@ public class DruidQuery extends AbstractRelNode implements BindableRel {
         generator.writeStringField("resultFormat", "compactedList");
         if (fetchLimit != null) {
           generator.writeNumberField("limit", fetchLimit);
+        } else {
+          throw new RuntimeException("Row limit must be supplied. Can run out of memory if it is not set");
         }
         generator.writeEndObject();
         generator.close();

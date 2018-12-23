@@ -16,11 +16,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 {% endcomment %}
 -->
-[![Travis Build Status](https://travis-ci.org/apache/calcite.svg?branch=master)](https://travis-ci.org/apache/calcite)
-[![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/apache/calcite?svg=true&branch=master)](https://ci.appveyor.com/project/ApacheSoftwareFoundation/calcite)
 
 # Apache Calcite
 
 Apache Calcite is a dynamic data management framework.
 
 For more details, see the [home page](http://calcite.apache.org).
+
+This fork adds functionality that I personally need and serves as a playground for me to hack on

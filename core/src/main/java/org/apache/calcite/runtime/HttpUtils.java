@@ -31,7 +31,7 @@ import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.config.Lookup;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.entity.StringEntity;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.auth.SPNegoSchemeFactory;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -42,7 +42,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.util.Map;
 import java.util.function.Function;
@@ -96,7 +95,7 @@ public class HttpUtils {
 
   public static <R> R post(
       String url,
-      CharSequence data,
+      byte[] data,
       Map<String, String> headers,
       Function<InputStream, R> responseCallback) throws IOException {
     return post(url, data, headers, responseCallback, 10000, 60000);
@@ -104,7 +103,7 @@ public class HttpUtils {
 
   public static <R> R post(
       String url,
-      CharSequence data,
+      byte[] data,
       Map<String, String> headers,
       Function<InputStream, R> responseCallback,
       int cTimeout,
@@ -115,7 +114,7 @@ public class HttpUtils {
 
   public static <R> R executeMethod(
       String url,
-      CharSequence data, Map<String, String> headers, Function<InputStream, R> responseCallback,
+      byte[] data, Map<String, String> headers, Function<InputStream, R> responseCallback,
       int cTimeout, int rTimeout) throws IOException {
     // NOTE: do not log "data" or "url"; may contain user name or password.
 
@@ -144,7 +143,7 @@ public class HttpUtils {
       } else {
         //POST
         HttpPost post = new HttpPost(url);
-        post.setEntity(new StringEntity(data.toString(), StandardCharsets.UTF_8));
+        post.setEntity(new ByteArrayEntity(data));
 
         request = post;
       }

@@ -18,7 +18,6 @@ package org.apache.calcite.adapter.druid;
 
 import org.apache.calcite.avatica.AvaticaUtils;
 import org.apache.calcite.avatica.ColumnMetaData;
-import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.calcite.interpreter.Row;
 import org.apache.calcite.interpreter.Sink;
 import org.apache.calcite.linq4j.AbstractEnumerable;
@@ -35,27 +34,32 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
+import com.fasterxml.jackson.dataformat.smile.SmileFactory;
+import com.fasterxml.jackson.dataformat.smile.SmileGenerator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.joda.time.Interval;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.DateTimeFormatterBuilder;
+import org.joda.time.format.DateTimeParser;
+import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -71,16 +75,20 @@ class DruidConnectionImpl implements DruidConnection {
   private final String coordinatorUrl;
 
   public static final String DEFAULT_RESPONSE_TIMESTAMP_COLUMN = "timestamp";
-  private static final SimpleDateFormat UTC_TIMESTAMP_FORMAT;
-  private static final SimpleDateFormat TIMESTAMP_FORMAT;
+  private static final DateTimeFormatter DATE_TIME_FORMATTER;
 
   static {
-    final TimeZone utc = DateTimeUtils.UTC_ZONE;
-    UTC_TIMESTAMP_FORMAT =
-        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ROOT);
-    UTC_TIMESTAMP_FORMAT.setTimeZone(utc);
-    TIMESTAMP_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT);
-    TIMESTAMP_FORMAT.setTimeZone(utc);
+
+    DateTimeParser timestampParser = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss")
+        .withZoneUTC()
+        .getParser();
+
+    DateTimeParser utcTimestampParser = ISODateTimeFormat.dateTime()
+        .withZoneUTC()
+        .getParser();
+
+    DATE_TIME_FORMATTER = new DateTimeFormatterBuilder().append(null,
+        new DateTimeParser[]{utcTimestampParser, timestampParser}).toFormatter();
   }
 
   DruidConnectionImpl(String url, String coordinatorUrl) {
@@ -102,13 +110,14 @@ class DruidConnectionImpl implements DruidConnection {
       Page page) {
     final String url = this.url + "/druid/v2/?pretty";
     final Map<String, String> requestHeaders =
-        ImmutableMap.of("Content-Type", "application/json");
+        ImmutableMap.of("Content-Type", "application/x-jackson-smile");
     if (CalcitePrepareImpl.DEBUG) {
       System.out.println(data);
     }
 
     try {
-      post(url, data, requestHeaders, in0 -> {
+      final byte[] dataBytes = generateSmileData(data);
+      post(url, dataBytes, requestHeaders, in0 -> {
         InputStream in = traceResponse(in0);
         parse(queryType, in, sink, fieldNames, fieldTypes, page);
         return null;
@@ -120,11 +129,23 @@ class DruidConnectionImpl implements DruidConnection {
     }
   }
 
+  private byte[] generateSmileData(String data) throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try (JsonParser jp = new JsonFactory().createParser(data);
+        SmileGenerator sg = new SmileFactory().createGenerator(out)) {
+      while (jp.nextToken() != null) {
+        sg.copyCurrentEvent(jp);
+      }
+    }
+
+    return out.toByteArray();
+  }
+
   /** Parses the output of a query, sending the results to a
    * {@link Sink}. */
   private void parse(QueryType queryType, InputStream in, Sink sink,
       List<String> fieldNames, List<ColumnMetaData.Rep> fieldTypes, Page page) {
-    final JsonFactory factory = new JsonFactory();
+    final JsonFactory factory = new SmileFactory();
     final Row.RowBuilder rowBuilder = Row.newBuilder(fieldNames.size());
 
     if (CalcitePrepareImpl.DEBUG) {
@@ -338,29 +359,24 @@ class DruidConnectionImpl implements DruidConnection {
     if (isTimestampColumn || ColumnMetaData.Rep.JAVA_SQL_TIMESTAMP == type) {
       final int fieldPos = posTimestampField != -1 ? posTimestampField : i;
       if (token == JsonToken.VALUE_NUMBER_INT) {
-        rowBuilder.set(posTimestampField, parser.getLongValue());
+        //print out the timestamp
+        DateTime dt = new DateTime(parser.getLongValue(), DateTimeZone.UTC);
+        rowBuilder.set(posTimestampField, dt.toString(ISODateTimeFormat.dateTime()));
         return;
       } else {
         // We don't have any way to figure out the format of time upfront since we only have
         // org.apache.calcite.avatica.ColumnMetaData.Rep.JAVA_SQL_TIMESTAMP as type to represent
         // both timestamp and timestamp with local timezone.
         // Logic where type is inferred can be found at DruidQuery.DruidQueryNode.getPrimitive()
-        // Thus need to guess via try and catch
-        synchronized (UTC_TIMESTAMP_FORMAT) {
+
+        synchronized (DATE_TIME_FORMATTER) {
           // synchronized block to avoid race condition
           try {
-            // First try to parse as Timestamp with timezone.
             rowBuilder
-                .set(fieldPos, UTC_TIMESTAMP_FORMAT.parse(parser.getText()).getTime());
-          } catch (ParseException e) {
-            // swallow the exception and try timestamp format
-            try {
-              rowBuilder
-                  .set(fieldPos, TIMESTAMP_FORMAT.parse(parser.getText()).getTime());
-            } catch (ParseException e2) {
-              // unknown format should not happen
-              throw new RuntimeException(e2);
-            }
+                .set(fieldPos, DATE_TIME_FORMATTER.parseMillis(parser.getText()));
+          } catch (IllegalArgumentException e) {
+            // unknown format should not happen
+            throw new RuntimeException(e);
           }
         }
         return;
@@ -501,13 +517,13 @@ class DruidConnectionImpl implements DruidConnection {
     }
     parser.nextToken();
     try {
-      final Date parse;
+      final long millis;
       // synchronized block to avoid race condition
-      synchronized (UTC_TIMESTAMP_FORMAT) {
-        parse = UTC_TIMESTAMP_FORMAT.parse(parser.getText());
+      synchronized (DATE_TIME_FORMATTER) {
+        millis = DATE_TIME_FORMATTER.parseMillis(parser.getText());
       }
-      return parse.getTime();
-    } catch (ParseException e) {
+      return millis;
+    } catch (IllegalArgumentException e) {
       // ignore bad value
     }
     return null;
@@ -570,6 +586,7 @@ class DruidConnectionImpl implements DruidConnection {
     final Map<String, String> requestHeaders =
         ImmutableMap.of("Content-Type", "application/json");
     final String data = DruidQuery.metadataQuery(dataSourceName, intervals);
+    final byte[] dataBytes = data.getBytes(StandardCharsets.UTF_8);
     if (CalcitePrepareImpl.DEBUG) {
       System.out.println("Druid: " + data);
     }
@@ -580,7 +597,7 @@ class DruidConnectionImpl implements DruidConnection {
           mapper.getTypeFactory().constructCollectionType(List.class,
               JsonSegmentMetadata.class);
 
-      final List<JsonSegmentMetadata> list = post(url, data, requestHeaders, (in0) -> {
+      final List<JsonSegmentMetadata> list = post(url, dataBytes, requestHeaders, in0 -> {
         InputStream in = traceResponse(in0);
         try {
           return mapper.readValue(in, listType);
@@ -634,10 +651,9 @@ class DruidConnectionImpl implements DruidConnection {
   Set<String> tableNames() {
     final Map<String, String> requestHeaders =
         ImmutableMap.of("Content-Type", "application/json");
-    final String data = null;
     final String url = coordinatorUrl + "/druid/coordinator/v1/metadata/datasources";
     if (CalcitePrepareImpl.DEBUG) {
-      System.out.println("Druid: table names" + data + "; " + url);
+      System.out.println("Druid: table names; " + url);
     }
     try {
       final ObjectMapper mapper = new ObjectMapper();
@@ -645,7 +661,7 @@ class DruidConnectionImpl implements DruidConnection {
           mapper.getTypeFactory().constructCollectionType(List.class,
               String.class);
 
-      final List<String> list = post(url, data, requestHeaders, (in0) -> {
+      final List<String> list = post(url, null, requestHeaders, in0 -> {
         InputStream in = traceResponse(in0);
         try {
           return mapper.readValue(in, listType);

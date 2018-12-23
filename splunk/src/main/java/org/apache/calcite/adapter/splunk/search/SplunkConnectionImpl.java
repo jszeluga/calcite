@@ -102,7 +102,8 @@ public class SplunkConnectionImpl implements SplunkConnection {
           data, "username", username, "password", password);
 
 
-      rd = post(loginUrl, data, requestHeaders, Util::reader);
+      byte[] dataBytes = data.toString().getBytes(StandardCharsets.UTF_8);
+      rd = post(loginUrl, dataBytes, requestHeaders, Util::reader);
 
       String line;
       StringBuilder reply = new StringBuilder();
@@ -161,9 +162,10 @@ public class SplunkConnectionImpl implements SplunkConnection {
     args.put("check_connection", "0");
 
     appendURLEncodedArgs(data, args);
+    byte[] dataBytes = data.toString().getBytes(StandardCharsets.UTF_8);
     try {
       // wait at most 30 minutes for first result
-      return post(searchUrl, data, requestHeaders, (in) -> {
+      return post(searchUrl, dataBytes, requestHeaders, (in) -> {
         if (srl == null) {
           return new SplunkResultEnumerator(in, wantedFields);
         } else {

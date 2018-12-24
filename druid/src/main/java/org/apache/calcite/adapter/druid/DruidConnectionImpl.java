@@ -354,12 +354,11 @@ class DruidConnectionImpl implements DruidConnection {
     } else {
       type = fieldTypes.get(i);
     }
+//
+//      When millis are returned as a timestamp, parse the time to ISO text
+//      for visual SQL tools. Since the format is standard it can be easily turned back into
+//      millis for other uses
 
-    /*
-      When millis are returned as a timestamp, parse the time to ISO text
-      for visual SQL tools. Since the format is standard it can be easily turned back into
-      millis for other uses
-     */
     if (isTimestampColumn || ColumnMetaData.Rep.JAVA_SQL_TIMESTAMP == type) {
       final int fieldPos = posTimestampField != -1 ? posTimestampField : i;
       if (token == JsonToken.VALUE_NUMBER_INT) {

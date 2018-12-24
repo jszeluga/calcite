@@ -39,8 +39,6 @@ import com.fasterxml.jackson.dataformat.smile.SmileGenerator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.joda.time.Interval;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -76,6 +74,7 @@ class DruidConnectionImpl implements DruidConnection {
 
   public static final String DEFAULT_RESPONSE_TIMESTAMP_COLUMN = "timestamp";
   private static final DateTimeFormatter DATE_TIME_FORMATTER;
+  private static final DateTimeFormatter ISO_FORMATTER = ISODateTimeFormat.dateTime().withZoneUTC();
 
   static {
 
@@ -356,12 +355,16 @@ class DruidConnectionImpl implements DruidConnection {
       type = fieldTypes.get(i);
     }
 
+    /*
+      When millis are returned as a timestamp, parse the time to ISO text
+      for visual SQL tools. Since the format is standard it can be easily turned back into
+      millis for other uses
+     */
     if (isTimestampColumn || ColumnMetaData.Rep.JAVA_SQL_TIMESTAMP == type) {
       final int fieldPos = posTimestampField != -1 ? posTimestampField : i;
       if (token == JsonToken.VALUE_NUMBER_INT) {
         //print out the timestamp
-        DateTime dt = new DateTime(parser.getLongValue(), DateTimeZone.UTC);
-        rowBuilder.set(posTimestampField, dt.toString(ISODateTimeFormat.dateTime()));
+        rowBuilder.set(posTimestampField, ISO_FORMATTER.print(parser.getLongValue()));
         return;
       } else {
         // We don't have any way to figure out the format of time upfront since we only have
@@ -372,8 +375,10 @@ class DruidConnectionImpl implements DruidConnection {
         synchronized (DATE_TIME_FORMATTER) {
           // synchronized block to avoid race condition
           try {
+
+            long millis = DATE_TIME_FORMATTER.parseMillis(parser.getText());
             rowBuilder
-                .set(fieldPos, DATE_TIME_FORMATTER.parseMillis(parser.getText()));
+                .set(fieldPos, ISO_FORMATTER.print(millis));
           } catch (IllegalArgumentException e) {
             // unknown format should not happen
             throw new RuntimeException(e);

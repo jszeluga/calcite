@@ -68,7 +68,11 @@ public class ElasticsearchProject extends Project implements ElasticsearchRel {
       final String name = pair.right;
       final String expr = pair.left.accept(translator);
 
-      if (expr.equals("\"" + name + "\"")) {
+      if (ElasticsearchRules.isItem(pair.left)) {
+        implementor.addExpressionItemMapping(name, ElasticsearchRules.stripQuotes(expr));
+      }
+
+      if (expr.equals(name)) {
         fields.add(name);
       } else if (expr.matches("\"literal\":.+")) {
         scriptFields.add(ElasticsearchRules.quote(name)

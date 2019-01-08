@@ -67,6 +67,8 @@ import org.apache.calcite.util.Util;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -79,6 +81,7 @@ import org.joda.time.Interval;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -153,6 +156,9 @@ public class DruidQuery extends AbstractRelNode implements BindableRel {
   final DruidTable druidTable;
   final ImmutableList<Interval> intervals;
   final ImmutableList<RelNode> rels;
+
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
   /**
    * This operator map provides DruidSqlOperatorConverter instance to convert a Calcite RexNode to
    * Druid Expression when possible.
@@ -1355,12 +1361,6 @@ public class DruidQuery extends AbstractRelNode implements BindableRel {
         if (fetchLimit != null) {
           generator.writeNumberField("limit", fetchLimit);
         }
-
-        //TODO: figure out how to force the query to have a limit
-//        else {
-//          throw new RuntimeException("Row limit must be supplied."
-//              + " Can run out of memory if it is not set");
-//        }
         generator.writeEndObject();
         generator.close();
       } catch (IOException e) {
@@ -1602,6 +1602,17 @@ public class DruidQuery extends AbstractRelNode implements BindableRel {
       do {
         final String queryString =
             querySpec.getQueryString(page.pagingIdentifier, page.offset);
+
+        //Scan query must have a limit to avoid OOM
+        if (querySpec.queryType == QueryType.SCAN) {
+          if (scanHasLimit(querySpec)) {
+            connection.request(querySpec.queryType, queryString, sink,
+                    querySpec.fieldNames, fieldTypes, page);
+          } else {
+            throw new RuntimeException("Row limit must be supplied."
+                    + " Can run out of memory if it is not set");
+          }
+        }
         connection.request(querySpec.queryType, queryString, sink,
             querySpec.fieldNames, fieldTypes, page);
       } while (!limitQuery
@@ -1612,6 +1623,20 @@ public class DruidQuery extends AbstractRelNode implements BindableRel {
     private static boolean containsLimit(QuerySpec querySpec) {
       return querySpec.queryString.contains("\"context\":{\""
           + DRUID_QUERY_FETCH + "\":true");
+    }
+
+    private static boolean scanHasLimit(QuerySpec querySpec) {
+      try {
+        HashMap<String, Object> jsonMap = OBJECT_MAPPER.readValue(querySpec.queryString,
+            new TypeReference<HashMap<String, Object>>() {
+            }
+        );
+
+        return jsonMap.containsKey("limit") && jsonMap.get("limit") != null;
+
+      } catch (Exception e) {
+        throw new RuntimeException("Invalid generated JSON");
+      }
     }
 
     private ColumnMetaData.Rep getPrimitive(RelDataTypeField field) {

@@ -722,11 +722,11 @@ public class CalciteMetaImpl extends MetaImpl {
   }
 
   @Override public void commit(ConnectionHandle ch) {
-    throw new UnsupportedOperationException();
+    //do nothing
   }
 
   @Override public void rollback(ConnectionHandle ch) {
-    throw new UnsupportedOperationException();
+    //do nothing
   }
 
   /** Metadata describing a Calcite table. */

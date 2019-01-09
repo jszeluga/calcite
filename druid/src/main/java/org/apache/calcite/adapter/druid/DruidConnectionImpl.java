@@ -75,6 +75,7 @@ class DruidConnectionImpl implements DruidConnection {
   public static final String DEFAULT_RESPONSE_TIMESTAMP_COLUMN = "timestamp";
   private static final DateTimeFormatter DATE_TIME_FORMATTER;
   private static final DateTimeFormatter ISO_FORMATTER = ISODateTimeFormat.dateTime().withZoneUTC();
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   static {
 
@@ -595,7 +596,7 @@ class DruidConnectionImpl implements DruidConnection {
       System.out.println("Druid: " + data);
     }
     try {
-      final ObjectMapper mapper = new ObjectMapper()
+      final ObjectMapper mapper = OBJECT_MAPPER
           .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
       final CollectionType listType =
           mapper.getTypeFactory().constructCollectionType(List.class,
@@ -610,7 +611,8 @@ class DruidConnectionImpl implements DruidConnection {
         }
       }, 10000, 1800000);
 
-      fieldBuilder.put(timestampColumnName, SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
+      //Keep Druid Timestamps in UTC
+      fieldBuilder.put(timestampColumnName, SqlTypeName.TIMESTAMP);
       for (JsonSegmentMetadata o : list) {
         for (Map.Entry<String, JsonColumn> entry : o.columns.entrySet()) {
           if (entry.getKey().equals(DruidTable.DEFAULT_TIMESTAMP_COLUMN)) {
@@ -660,15 +662,14 @@ class DruidConnectionImpl implements DruidConnection {
       System.out.println("Druid: table names; " + url);
     }
     try {
-      final ObjectMapper mapper = new ObjectMapper();
       final CollectionType listType =
-          mapper.getTypeFactory().constructCollectionType(List.class,
+          OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class,
               String.class);
 
       final List<String> list = post(url, null, requestHeaders, in0 -> {
         InputStream in = traceResponse(in0);
         try {
-          return mapper.readValue(in, listType);
+          return OBJECT_MAPPER.readValue(in, listType);
         } catch (IOException e) {
           throw new RuntimeException(e);
         }

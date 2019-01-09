@@ -226,13 +226,13 @@ public class TimeExtractionFunction implements ExtractionFunction {
       return new TimeExtractionFunction(castFormat,
           Granularities.createGranularity(TimeUnitRange.DAY, granularityTZId),
           DateTimeUtils.UTC_ZONE.getID(), Locale.ENGLISH.toString());
-    case TIMESTAMP:
+    case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
       // date -> timestamp: UTC
       // timestamp -> timestamp: UTC
       // timestamp with local time zone -> granularityTZId
       return new TimeExtractionFunction(
           castFormat, null, granularityTZId, Locale.ENGLISH.toString());
-    case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+    case TIMESTAMP:
       return new TimeExtractionFunction(
           castFormat, null, DateTimeUtils.UTC_ZONE.getID(), Locale.ENGLISH.toString());
     default:

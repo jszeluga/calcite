@@ -74,7 +74,6 @@ class DruidConnectionImpl implements DruidConnection {
 
   public static final String DEFAULT_RESPONSE_TIMESTAMP_COLUMN = "timestamp";
   private static final DateTimeFormatter DATE_TIME_FORMATTER;
-  private static final DateTimeFormatter ISO_FORMATTER = ISODateTimeFormat.dateTime().withZoneUTC();
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   static {
@@ -355,16 +354,11 @@ class DruidConnectionImpl implements DruidConnection {
     } else {
       type = fieldTypes.get(i);
     }
-//
-//      When millis are returned as a timestamp, parse the time to ISO text
-//      for visual SQL tools. Since the format is standard it can be easily turned back into
-//      millis for other uses
-
     if (isTimestampColumn || ColumnMetaData.Rep.JAVA_SQL_TIMESTAMP == type) {
       final int fieldPos = posTimestampField != -1 ? posTimestampField : i;
       if (token == JsonToken.VALUE_NUMBER_INT) {
         //print out the timestamp
-        rowBuilder.set(posTimestampField, ISO_FORMATTER.print(parser.getLongValue()));
+        rowBuilder.set(posTimestampField, parser.getLongValue());
         return;
       } else {
         // We don't have any way to figure out the format of time upfront since we only have
@@ -378,7 +372,7 @@ class DruidConnectionImpl implements DruidConnection {
 
             long millis = DATE_TIME_FORMATTER.parseMillis(parser.getText());
             rowBuilder
-                .set(fieldPos, ISO_FORMATTER.print(millis));
+                .set(fieldPos, millis);
           } catch (IllegalArgumentException e) {
             // unknown format should not happen
             throw new RuntimeException(e);

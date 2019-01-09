@@ -567,7 +567,7 @@ class DruidConnectionImpl implements DruidConnection {
       List<Interval> intervals,
       Map<String, SqlTypeName> fieldBuilder, Set<String> metricNameBuilder,
       Map<String, List<ComplexMetric>> complexMetrics) {
-    final String url = this.url + "/druid/v2/?pretty";
+    final String url = this.url + "/druid/v2";
     final Map<String, String> requestHeaders =
         ImmutableMap.of("Content-Type", "application/json");
     final String data = DruidQuery.metadataQuery(dataSourceName, intervals);

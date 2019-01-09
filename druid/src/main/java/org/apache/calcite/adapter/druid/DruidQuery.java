@@ -260,6 +260,14 @@ public class DruidQuery extends AbstractRelNode implements BindableRel {
     final String columnName;
     final ExtractionFunction extractionFunction;
     final Granularity granularity;
+    final TimeZone localTz;
+    String connectionTz = druidQuery.getConnectionConfig().timeZone();
+    if (connectionTz == null) {
+      localTz = TimeZone.getDefault();
+    } else {
+      localTz = TimeZone.getTimeZone(connectionTz);
+    }
+
     switch (rexNode.getKind()) {
     case INPUT_REF:
       columnName = extractColumnName(rexNode, rowType, druidQuery);
@@ -276,7 +284,7 @@ public class DruidQuery extends AbstractRelNode implements BindableRel {
       break;
     case EXTRACT:
       granularity = DruidDateTimeUtils
-          .extractGranularity(rexNode, druidQuery.getConnectionConfig().timeZone());
+          .extractGranularity(rexNode, localTz.getID());
       if (granularity == null) {
         // unknown Granularity
         return Pair.of(null, null);
@@ -297,7 +305,7 @@ public class DruidQuery extends AbstractRelNode implements BindableRel {
         // Use local time zone at the extraction level
         extractionFunction =
           TimeExtractionFunction.createExtractFromGranularity(
-              granularity, druidQuery.getConnectionConfig().timeZone());
+              granularity, localTz.getID());
         columnName = extractColumnName(extractValueNode, rowType, druidQuery);
       } else {
         return Pair.of(null, null);
@@ -305,7 +313,7 @@ public class DruidQuery extends AbstractRelNode implements BindableRel {
       break;
     case FLOOR:
       granularity = DruidDateTimeUtils
-          .extractGranularity(rexNode, druidQuery.getConnectionConfig().timeZone());
+          .extractGranularity(rexNode, localTz.getID());
       if (granularity == null) {
         // unknown Granularity
         return Pair.of(null, null);
@@ -340,7 +348,7 @@ public class DruidQuery extends AbstractRelNode implements BindableRel {
       if (toTypeName == SqlTypeName.DATE || toTypeName == SqlTypeName.TIMESTAMP
           || toTypeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
         extractionFunction = TimeExtractionFunction.translateCastToTimeExtract(rexNode,
-            TimeZone.getTimeZone(druidQuery.getConnectionConfig().timeZone()));
+            TimeZone.getTimeZone(localTz.getID()));
         if (extractionFunction == null) {
           // no extraction Function means cast is not valid thus bail out
           return Pair.of(null, null);

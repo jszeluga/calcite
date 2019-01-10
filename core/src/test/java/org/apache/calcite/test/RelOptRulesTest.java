@@ -65,6 +65,7 @@ import org.apache.calcite.rel.rules.DateRangeRules;
 import org.apache.calcite.rel.rules.FilterAggregateTransposeRule;
 import org.apache.calcite.rel.rules.FilterJoinRule;
 import org.apache.calcite.rel.rules.FilterMergeRule;
+import org.apache.calcite.rel.rules.FilterMultiJoinMergeRule;
 import org.apache.calcite.rel.rules.FilterProjectTransposeRule;
 import org.apache.calcite.rel.rules.FilterRemoveIsNotDistinctFromRule;
 import org.apache.calcite.rel.rules.FilterSetOpTransposeRule;
@@ -82,6 +83,7 @@ import org.apache.calcite.rel.rules.ProjectCorrelateTransposeRule;
 import org.apache.calcite.rel.rules.ProjectFilterTransposeRule;
 import org.apache.calcite.rel.rules.ProjectJoinTransposeRule;
 import org.apache.calcite.rel.rules.ProjectMergeRule;
+import org.apache.calcite.rel.rules.ProjectMultiJoinMergeRule;
 import org.apache.calcite.rel.rules.ProjectRemoveRule;
 import org.apache.calcite.rel.rules.ProjectSetOpTransposeRule;
 import org.apache.calcite.rel.rules.ProjectToCalcRule;
@@ -1691,6 +1693,18 @@ public class RelOptRulesTest extends RelOptTestBase {
             + "where e1.deptno = d.deptno and d.deptno = e2.deptno");
   }
 
+  @Test public void testManyFiltersOnTopOfMultiJoinShouldCollapse() throws Exception {
+    HepProgram program = new HepProgramBuilder()
+        .addMatchOrder(HepMatchOrder.BOTTOM_UP)
+        .addRuleInstance(JoinToMultiJoinRule.INSTANCE)
+        .addRuleCollection(
+            Arrays.asList(FilterMultiJoinMergeRule.INSTANCE, ProjectMultiJoinMergeRule.INSTANCE))
+        .build();
+    checkPlanning(program,
+        "select * from (select * from emp e1 left outer join dept d on e1.deptno = d.deptno "
+            + "where d.deptno > 3) where ename LIKE 'bar'");
+  }
+
   @Test public void testReduceConstants() throws Exception {
     HepProgram program = new HepProgramBuilder()
         .addRuleInstance(ReduceExpressionsRule.PROJECT_INSTANCE)
@@ -3255,6 +3269,48 @@ public class RelOptRulesTest extends RelOptTestBase {
         .check();
   }
 
+  /** Test case for DX-11490
+   * Make sure the planner doesn't fail over wrong push down
+   * of is null */
+  @Test public void testIsNullPushDown() {
+    HepProgramBuilder preBuilder = new HepProgramBuilder();
+    preBuilder.addRuleInstance(ProjectToWindowRule.PROJECT);
+
+    HepProgramBuilder builder = new HepProgramBuilder();
+    builder.addRuleInstance(ReduceExpressionsRule.PROJECT_INSTANCE);
+    builder.addRuleInstance(ReduceExpressionsRule.FILTER_INSTANCE);
+    HepPlanner hepPlanner = new HepPlanner(builder.build());
+
+    final String sql = "select empno, deptno, w_count from (\n"
+        + "  select empno, deptno, count(empno) over (w) w_count\n"
+        + "  from emp\n"
+        + "  window w as (partition by deptno order by empno)\n"
+        + ") sub_query where w_count is null";
+    sql(sql)
+        .withPre(preBuilder.build())
+        .with(hepPlanner)
+        .check();
+  }
+
+  @Test public void testIsNullPushDown2() {
+    HepProgramBuilder preBuilder = new HepProgramBuilder();
+    preBuilder.addRuleInstance(ProjectToWindowRule.PROJECT);
+
+    HepProgramBuilder builder = new HepProgramBuilder();
+    builder.addRuleInstance(ReduceExpressionsRule.PROJECT_INSTANCE);
+    builder.addRuleInstance(ReduceExpressionsRule.FILTER_INSTANCE);
+    HepPlanner hepPlanner = new HepPlanner(builder.build());
+
+    final String sql = "select empno, deptno, w_count from (\n"
+        + "  select empno, deptno, count(empno) over (ROWS BETWEEN 10 PRECEDING AND 1 PRECEDING) w_count\n"
+        + "  from emp\n"
+        + ") sub_query where w_count is null";
+    sql(sql)
+        .withPre(preBuilder.build())
+        .with(hepPlanner)
+        .check();
+  }
+
   /** Test case for
    * <a href="https://issues.apache.org/jira/browse/CALCITE-750">[CALCITE-750]
    * Allow windowed aggregate on top of regular aggregate</a>. */
@@ -3548,6 +3604,19 @@ public class RelOptRulesTest extends RelOptTestBase {
     final String sql =
         "select count(*) from sales.emp join sales.dept on job = name";
     checkPlanning(tester, preProgram, new HepPlanner(program), sql);
+  }
+
+  /** Test case for
+   * <a href="https://issues.apache.org/jira/browse/CALCITE-2249">[CALCITE-2249]
+   * AggregateJoinTransposeRule generates inequivalent nodes if Aggregate relNode contains
+   * distinct aggregate function.</a>. */
+  @Test public void testPushDistinctAggregateIntoJoin() throws Exception {
+    final HepProgram program = new HepProgramBuilder()
+            .addRuleInstance(AggregateJoinTransposeRule.EXTENDED)
+            .build();
+    final String sql =
+            "select count(distinct sal) from sales.emp join sales.dept on job = name";
+    checkPlanUnchanged(new HepPlanner(program), sql);
   }
 
   @Test public void testSwapOuterJoin() {

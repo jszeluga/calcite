@@ -101,7 +101,7 @@ class DruidConnectionImpl implements DruidConnection {
   public void request(QueryType queryType, String data, Sink sink,
       List<String> fieldNames, List<ColumnMetaData.Rep> fieldTypes,
       Page page) {
-    final String url = this.url + "/druid/v2/?pretty";
+    final String url = this.url + "/druid/v2";
     final Map<String, String> requestHeaders =
         ImmutableMap.of("Content-Type", "application/json");
     if (CalciteSystemProperty.DEBUG.value()) {

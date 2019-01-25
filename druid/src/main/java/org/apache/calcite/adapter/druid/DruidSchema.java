@@ -40,6 +40,7 @@ import java.util.Set;
 public class DruidSchema extends AbstractSchema {
   final String url;
   final String coordinatorUrl;
+  final SqlTypeName timestampType;
   private final boolean discoverTables;
   private Map<String, Table> tableMap = null;
 
@@ -54,9 +55,35 @@ public class DruidSchema extends AbstractSchema {
    */
   public DruidSchema(String url, String coordinatorUrl,
       boolean discoverTables) {
+    this(url, coordinatorUrl, discoverTables, null);
+  }
+
+  /**
+   * Creates a Druid schema.
+   *
+   * @param url URL of query REST service, e.g. "http://localhost:8082"
+   * @param coordinatorUrl URL of coordinator REST service,
+   *                       e.g. "http://localhost:8081"
+   * @param discoverTables If true, ask Druid what tables exist;
+   *                       if false, only create tables explicitly in the model
+   * @param timestampType  If set it will globally override the type of the Druid
+   *                       timestamp column
+   *                       e.g. "timestamp" or "timestamp with local time zone"
+   */
+  public DruidSchema(String url, String coordinatorUrl,
+      boolean discoverTables, String timestampType) {
     this.url = Objects.requireNonNull(url);
     this.coordinatorUrl = Objects.requireNonNull(coordinatorUrl);
     this.discoverTables = discoverTables;
+
+    if ("timestamp with local time zone".equals(timestampType)) {
+      this.timestampType = SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE;
+    } else if ("timestamp".equals(timestampType)) {
+      this.timestampType = SqlTypeName.TIMESTAMP;
+    } else {
+      this.timestampType = null;
+    }
+
   }
 
   @Override protected Map<String, Table> getTableMap() {
@@ -81,6 +108,10 @@ public class DruidSchema extends AbstractSchema {
     final Map<String, SqlTypeName> fieldMap = new LinkedHashMap<>();
     final Set<String> metricNameSet = new LinkedHashSet<>();
     final Map<String, List<ComplexMetric>> complexMetrics = new HashMap<>();
+
+    if (timestampType != null) {
+      fieldMap.putIfAbsent(DruidTable.DEFAULT_TIMESTAMP_COLUMN, timestampType);
+    }
 
     connection.metadata(tableName, DruidTable.DEFAULT_TIMESTAMP_COLUMN,
         null, fieldMap, metricNameSet, complexMetrics);

@@ -46,6 +46,13 @@ import java.util.Map;
  *     for example "http://localhost:8081".</td>
  *     <td>No</td>
  *   </tr>
+ *   <tr>
+ *       <td>timestampType</td>
+ *       <td>Global override or Druid's timestamp column type.
+ *       The default is <code>TIMESTAMP_WITH_LOCAL_TIME_ZONE</code>,
+ *       replace with "timestamp" to change to <code>TIMESTAMP</code></td>
+ *       <td>No</td>
+ *   </tr>
  * </table>
  */
 public class DruidSchemaFactory implements SchemaFactory {
@@ -60,11 +67,15 @@ public class DruidSchemaFactory implements SchemaFactory {
     final String coordinatorUrl = operand.get("coordinatorUrl") instanceof String
         ? (String) operand.get("coordinatorUrl")
         : url.replace(":8082", ":8081");
+
+    final String timestampType = operand.get("timestampType") instanceof String
+        ? (String) operand.get("timestampType")
+        : null;
     // "tables" is a hidden attribute, copied in from the enclosing custom
     // schema
     final boolean containsTables = operand.get("tables") instanceof List
         && ((List) operand.get("tables")).size() > 0;
-    return new DruidSchema(url, coordinatorUrl, !containsTables);
+    return new DruidSchema(url, coordinatorUrl, !containsTables, timestampType);
   }
 }
 

@@ -53,6 +53,8 @@ public class DruidTableFactory implements TableFactory {
     final DruidSchema druidSchema = schema.unwrap(DruidSchema.class);
     // If "dataSource" operand is present it overrides the table name.
     final String dataSource = (String) operand.get("dataSource");
+    //If the schema sets the timestamp type then override globally
+    final SqlTypeName timestampTypeOverride = druidSchema.timestampType;
     final Set<String> metricNameBuilder = new LinkedHashSet<>();
     final Map<String, SqlTypeName> fieldBuilder = new LinkedHashMap<>();
     final Map<String, List<ComplexMetric>> complexMetrics = new HashMap<>();
@@ -83,7 +85,10 @@ public class DruidTableFactory implements TableFactory {
       timestampColumnName = DruidTable.DEFAULT_TIMESTAMP_COLUMN;
       timestampColumnType = SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE;
     }
-    fieldBuilder.put(timestampColumnName, timestampColumnType);
+
+    //if timestampTypeOverride is defined then overwrite globally
+    fieldBuilder.put(timestampColumnName, timestampTypeOverride != null
+            ? timestampTypeOverride : timestampColumnType);
     final Object dimensionsRaw = operand.get("dimensions");
     if (dimensionsRaw instanceof List) {
       // noinspection unchecked

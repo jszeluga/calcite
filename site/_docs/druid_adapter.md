@@ -254,13 +254,13 @@ REST call. Now that the "wiki" table element is removed, the table is called
 "wikiticker". Any other data sources present in Druid will also appear as
 tables.
 
-Our model is now a single schema based on a custom schema factory with only two
+Our model is now a single schema based on a custom schema factory with three
 operands, so we can
 [dispense with the model](https://issues.apache.org/jira/browse/CALCITE-1206)
 and supply the operands as part of the connect string:
 
 {% highlight bash %}
-  jdbc:calcite:schemaFactory=org.apache.calcite.adapter.druid.DruidSchemaFactory; schema.url=http://localhost:8082; schema.coordinatorUrl=http://localhost:8081
+  jdbc:calcite:schemaFactory=org.apache.calcite.adapter.druid.DruidSchemaFactory; schema.url=http://localhost:8082; schema.coordinatorUrl=http://localhost:8081; schema.timestampType=timestamp with local time zone
 {% endhighlight %}
 
 In fact, those are the

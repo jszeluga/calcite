@@ -25,7 +25,6 @@ import org.apache.calcite.interpreter.Sink;
 import org.apache.calcite.linq4j.AbstractEnumerable;
 import org.apache.calcite.linq4j.Enumerable;
 import org.apache.calcite.linq4j.Enumerator;
-import org.apache.calcite.prepare.CalcitePrepareImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Holder;
 import org.apache.calcite.util.Util;

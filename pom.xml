@@ -24,7 +24,7 @@ limitations under the License.
   </parent>
 
   <!-- The basics. -->
-  <groupId>org.apache.calcite</groupId>
+  <groupId>com.cem.spirent</groupId>
   <artifactId>calcite</artifactId>
   <packaging>pom</packaging>
   <version>1.20.0</version>

@@ -36,21 +36,21 @@ limitations under the License.
 
   <dependencies>
     <dependency>
-      <groupId>org.apache.calcite</groupId>
+      <groupId>com.cem.spirent</groupId>
       <artifactId>calcite-core</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.apache.calcite</groupId>
+      <groupId>com.cem.spirent</groupId>
       <artifactId>calcite-core</artifactId>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.calcite</groupId>
+      <groupId>com.cem.spirent</groupId>
       <artifactId>calcite-linq4j</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.apache.calcite</groupId>
+      <groupId>com.cem.spirent</groupId>
       <artifactId>calcite-example-csv</artifactId>
     </dependency>
     <dependency>

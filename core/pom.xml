@@ -42,7 +42,7 @@ limitations under the License.
       <artifactId>avatica-core</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.apache.calcite</groupId>
+      <groupId>com.cem.spirent</groupId>
       <artifactId>calcite-linq4j</artifactId>
     </dependency>
     <dependency>

@@ -216,23 +216,23 @@ limitations under the License.
         <version>${avatica.version}</version>
       </dependency>
       <dependency>
-        <groupId>org.apache.calcite</groupId>
+        <groupId>com.cem.spirent</groupId>
         <artifactId>calcite-core</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>org.apache.calcite</groupId>
+        <groupId>com.cem.spirent</groupId>
         <artifactId>calcite-core</artifactId>
         <type>test-jar</type>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>org.apache.calcite</groupId>
+        <groupId>com.cem.spirent</groupId>
         <artifactId>calcite-example-csv</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>org.apache.calcite</groupId>
+        <groupId>com.cem.spirent</groupId>
         <artifactId>calcite-linq4j</artifactId>
         <version>${project.version}</version>
       </dependency>

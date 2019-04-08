@@ -19,14 +19,14 @@ limitations under the License.
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.cem.spirent</groupId>
+    <groupId>com.spirent.cem</groupId>
     <artifactId>calcite</artifactId>
-    <version>1.19.0.spirent-SNAPSHOT</version>
+    <version>1.19.0</version>
   </parent>
 
   <artifactId>calcite-elasticsearch</artifactId>
   <packaging>jar</packaging>
-  <version>1.19.0.spirent-SNAPSHOT</version>
+  <version>1.19.0</version>
   <name>Calcite Elasticsearch</name>
   <description>Elasticsearch adapter for Calcite</description>
 
@@ -40,12 +40,12 @@ limitations under the License.
       <artifactId>guava</artifactId>
     </dependency>
     <dependency>
-      <groupId>com.cem.spirent</groupId>
+      <groupId>com.spirent.cem</groupId>
       <artifactId>calcite-core</artifactId>
       <type>jar</type>
     </dependency>
     <dependency>
-      <groupId>com.cem.spirent</groupId>
+      <groupId>com.spirent.cem</groupId>
       <artifactId>calcite-core</artifactId>
       <type>test-jar</type>
       <scope>test</scope>
@@ -78,7 +78,7 @@ limitations under the License.
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>com.cem.spirent</groupId>
+      <groupId>com.spirent.cem</groupId>
       <artifactId>calcite-linq4j</artifactId>
     </dependency>
     <dependency>

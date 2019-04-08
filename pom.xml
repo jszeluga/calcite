@@ -24,7 +24,7 @@ limitations under the License.
   </parent>
 
   <!-- The basics. -->
-  <groupId>com.cem.spirent</groupId>
+  <groupId>com.spirent.cem</groupId>
   <artifactId>calcite</artifactId>
   <packaging>pom</packaging>
   <version>1.20.0</version>
@@ -216,23 +216,23 @@ limitations under the License.
         <version>${avatica.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.cem.spirent</groupId>
+        <groupId>com.spirent.cem</groupId>
         <artifactId>calcite-core</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.cem.spirent</groupId>
+        <groupId>com.spirent.cem</groupId>
         <artifactId>calcite-core</artifactId>
         <type>test-jar</type>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.cem.spirent</groupId>
+        <groupId>com.spirent.cem</groupId>
         <artifactId>calcite-example-csv</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.cem.spirent</groupId>
+        <groupId>com.spirent.cem</groupId>
         <artifactId>calcite-linq4j</artifactId>
         <version>${project.version}</version>
       </dependency>

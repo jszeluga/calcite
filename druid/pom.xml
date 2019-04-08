@@ -18,7 +18,7 @@ limitations under the License.
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>com.cem.spirent</groupId>
+    <groupId>com.spirent.cem</groupId>
     <artifactId>calcite</artifactId>
     <version>1.20.0</version>
   </parent>
@@ -41,18 +41,18 @@ limitations under the License.
       <artifactId>avatica-core</artifactId>
     </dependency>
     <dependency>
-      <groupId>com.cem.spirent</groupId>
+      <groupId>com.spirent.cem</groupId>
       <artifactId>calcite-core</artifactId>
       <type>jar</type>
     </dependency>
     <dependency>
-      <groupId>com.cem.spirent</groupId>
+      <groupId>com.spirent.cem</groupId>
       <artifactId>calcite-core</artifactId>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>com.cem.spirent</groupId>
+      <groupId>com.spirent.cem</groupId>
       <artifactId>calcite-linq4j</artifactId>
     </dependency>
 
@@ -177,18 +177,15 @@ limitations under the License.
         <configuration>
 
           <outputFile>${basedir}/target/${project.artifactId}-${project.version}-uberjar.jar</outputFile>
-
+          <shadedArtifactAttached>true</shadedArtifactAttached>
+          <shadedClassifierName>uberjar</shadedClassifierName>
           <filters>
             <filter>
               <artifact>*:*</artifact>
               <excludes>
-                <exclude>META-INF/license/**</exclude>
-                <exclude>META-INF/*</exclude>
-                <exclude>META-INF/maven/**</exclude>
-                <exclude>LICENSE</exclude>
-                <exclude>NOTICE</exclude>
-                <exclude>/*.txt</exclude>
-                <exclude>build.properties</exclude>
+                <exclude>META-INF/*.SF</exclude>
+                <exclude>META-INF/*.DSA</exclude>
+                <exclude>META-INF/*.RSA</exclude>
               </excludes>
             </filter>
           </filters>

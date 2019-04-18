@@ -50,6 +50,7 @@ public class ExtractOperatorConversion implements DruidSqlOperatorConverter {
           .put(TimeUnitRange.MONTH, "MONTH")
           .put(TimeUnitRange.QUARTER, "QUARTER")
           .put(TimeUnitRange.YEAR, "YEAR")
+          .put(TimeUnitRange.EPOCH, "EPOCH")
           .build();
 
   @Override public SqlOperator calciteOperator() {

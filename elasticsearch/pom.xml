@@ -21,12 +21,12 @@ limitations under the License.
   <parent>
     <groupId>com.spirent.cem</groupId>
     <artifactId>calcite</artifactId>
-    <version>1.19.1</version>
+    <version>1.19.2</version>
   </parent>
 
   <artifactId>calcite-elasticsearch</artifactId>
   <packaging>jar</packaging>
-  <version>1.19.1</version>
+  <version>1.19.2</version>
   <name>Calcite Elasticsearch</name>
   <description>Elasticsearch adapter for Calcite</description>
 

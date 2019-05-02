@@ -27,7 +27,7 @@ limitations under the License.
   <groupId>com.spirent.cem</groupId>
   <artifactId>calcite</artifactId>
   <packaging>pom</packaging>
-  <version>1.19.1</version>
+  <version>1.19.2</version>
 
   <!-- More project information. -->
   <name>Calcite</name>

@@ -19,13 +19,13 @@ limitations under the License.
   <parent>
     <groupId>com.spirent.cem</groupId>
     <artifactId>calcite</artifactId>
-    <version>1.19.1</version>
+    <version>1.19.2</version>
   </parent>
 
   <!-- The basics. -->
   <artifactId>calcite-file</artifactId>
   <packaging>jar</packaging>
-  <version>1.19.1</version>
+  <version>1.19.2</version>
   <name>Calcite File</name>
   <description>Calcite provider that reads files and URIs</description>
 
